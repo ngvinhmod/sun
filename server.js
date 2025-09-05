@@ -19,10 +19,21 @@ let cachedParsed = null;
 let lastPhien = null;
 let historyParsed = [];
 
-// === Lấy IP thật của server ===
-const realIp = Object.values(os.networkInterfaces())
-  .flat()
-  .find((iface) => iface && iface.family === "IPv4" && !iface.internal)?.address;
+// === Lấy IP thật của server (cách cũ, chạy Node 12 ok) ===
+let realIp = "localhost";
+try {
+  const ifaces = os.networkInterfaces();
+  for (const name in ifaces) {
+    for (const iface of ifaces[name]) {
+      if (iface.family === "IPv4" && !iface.internal) {
+        realIp = iface.address;
+        break;
+      }
+    }
+  }
+} catch (e) {
+  realIp = "localhost";
+}
 
 // === Function tính Tài / Xỉu ===
 function getTaiXiu(d1, d2, d3) {
@@ -47,12 +58,15 @@ function pollApi() {
             data.data.length > 0
           ) {
             const game = data.data[0];
-            const { sid, d1, d2, d3 } = game;
+            const sid = game.sid;
+            const d1 = game.d1;
+            const d2 = game.d2;
+            const d3 = game.d3;
 
             if (sid !== lastPhien && d1 != null && d2 != null && d3 != null) {
               lastPhien = sid;
               const parsed = {
-                Phien: sid, // ✅ Đổi từ sid → Phien
+                Phien: sid, // ✅ đổi sid → Phien
                 Xuc_xac_1: d1,
                 Xuc_xac_2: d2,
                 Xuc_xac_3: d3,
@@ -66,7 +80,10 @@ function pollApi() {
               historyParsed.push(parsed);
               if (historyParsed.length > MAX_HISTORY) historyParsed.shift();
 
-              console.log(`[${new Date().toISOString()}] ✅ New HIT session:`, parsed);
+              console.log(
+                `[${new Date().toISOString()}] ✅ New HIT session:`,
+                parsed
+              );
             }
           }
         } catch (e) {
@@ -77,9 +94,6 @@ function pollApi() {
     .on("error", (err) => {
       console.error(`[${new Date().toISOString()}] ❌ Poll error:`, err.message);
       setTimeout(pollApi, RETRY_DELAY);
-    })
-    .on("timeout", () => {
-      console.error("⏳ Poll request timeout");
     });
 
   setTimeout(pollApi, POLL_INTERVAL);
@@ -133,5 +147,5 @@ const server = http.createServer((req, res) => {
 
 // === Start server ===
 server.listen(PORT, HOST, () => {
-  console.log(`🟢 HTTP server running at http://${realIp || "localhost"}:${PORT}`);
+  console.log(`🟢 HTTP server running at http://${realIp}:${PORT}`);
 });
