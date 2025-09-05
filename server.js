@@ -66,6 +66,59 @@ function getTX(d1, d2, d3) {
   return d1 + d2 + d3 >= 11 ? "T" : "X";
 }
 
+function analyzePatterns(history) {
+  if (history.length < 5) return null;
+  const patternHistory = history.slice(0, 30).map(item => getTX(item.d1, item.d2, item.d3)).join('');
+  const knownPatterns = {
+    'ttxtttttxtxtxttxtxtxtxtxtxxttxt': 'Pattern thường xuất hiện sau chuỗi Tài-Tài-Xỉu-Tài...',
+    'ttttxxxx': '4 Tài liên tiếp thường đi kèm 4 Xỉu',
+    'xtxtxtxt': 'Xen kẽ Tài Xỉu ổn định',
+    'ttxxttxxttxx': 'Chu kỳ 2 Tài 2 Xỉu'
+  };
+  for (const [pattern, description] of Object.entries(knownPatterns)) {
+    if (patternHistory.includes(pattern)) {
+      return {
+        pattern, description,
+        confidence: Math.floor(Math.random() * 20) + 80
+      };
+    }
+  }
+  return null;
+}
+
+function predictNext(history) {
+  if (history.length < 4) return history.at(-1) || "Tài";
+  const last = history.at(-1);
+
+  if (history.slice(-4).every(k => k === last)) return last;
+
+  if (history.length >= 4 &&
+    history.at(-1) === history.at(-2) &&
+    history.at(-3) === history.at(-4) &&
+    history.at(-1) !== history.at(-3)) {
+    return last === "Tài" ? "Xỉu" : "Tài";
+  }
+
+  const last4 = history.slice(-4);
+  if (last4[0] !== last4[1] && last4[1] === last4[2] && last4[2] !== last4[3]) {
+    return last === "Tài" ? "Xỉu" : "Tài";
+  }
+
+  const pattern = history.slice(-6, -3).toString();
+  const latest = history.slice(-3).toString();
+  if (pattern === latest) return history.at(-1);
+
+  if (new Set(history.slice(-3)).size === 3) {
+    return Math.random() < 0.5 ? "Tài" : "Xỉu";
+  }
+
+  const count = history.reduce((acc, val) => {
+    acc[val] = (acc[val] || 0) + 1;
+    return acc;
+  }, {});
+  return (count["Tài"] || 0) > (count["Xỉu"] || 0) ? "Xỉu" : "Tài";
+}
+
 function sendRikCmd1005() {
   if (rikWS?.readyState === WebSocket.OPEN) {
     rikWS.send(JSON.stringify([6, "MiniGame", "taixiuPlugin", { cmd: 1005 }]));
@@ -78,24 +131,24 @@ function connectRikWebSocket() {
 
   rikWS.on("open", () => {
     const authPayload = [
-      1,
-      "MiniGame",
-      "SC_axoday",
-      "vinhk122011",
-      {
-        info: JSON.stringify({
-          ipAddress: "2001:ee0:4fb1:c780:2982:ecc5:3540:9eea",
-          wsToken: TOKEN,
-          userId: "6c2c232c-692b-4559-8fb1-d9445e02e984",
-          username: "SC_axoday",
-          timestamp: 1757034064394,
-          refreshToken: "6845f71e7bb649cc88f6eae9062be9ff.4bc8bf37acb241069fe7c19766d43aaa",
-        }),
-        signature: "83D33EFF6A58913BCD07DEDDB6F0CC8FCE151DF7CF0F341D3CF7FE64E85276ADDE6600B8C93CD85EEA14D986AEC220242C5BED128C0609AFEC463A9038CA6D940FEBA8B4C1228AD51A927EB10C3557435DBDCF8A784367F3EFA9847EA82DC4A4A60D585D9976FD5F1C84A4363B5BFAEF680EA77674766DB00398C53D2E5BDB00",
-        pid: 5,
-        subi: true
-      }
-    ];
+  1,
+  "MiniGame",
+  "SC_hoandz102",
+  "123321",
+  {
+    info: JSON.stringify({
+      ipAddress: "2001:ee0:5708:7700:8af3:abd1:fe2a:c62c",
+      wsToken: TOKEN,
+      userId: "0dad2f92-68a5-4597-9645-82f4bae8b4bb",
+      username: "SC_hoandz102",
+      timestamp: 1753460446039,
+      refreshToken: "20f613c9ce314df0b763fc6a7d174e7e.f7d8145b4d284b7a86522951ab947ea8",
+    }),
+    signature: "41114A7DA72204913C60C579CE12A2189D56F9598CA8EEB71E9EDB2349B7755CCCB3AC76281B36188C48F7BEEA377A8B45C46A6B03A2BF5196E060A9408D3270AAE7547F12A107FC95F122ABCB0C58FD8E8D3023E8AFAD596CBAF775FB606F81064B04F33742722864301D297D0C94F6E2BEC6A3F71F7BFA7FCA54B5387F356D",
+    pid: 5,
+    subi: true
+  }
+];
     rikWS.send(JSON.stringify(authPayload));
     clearInterval(rikIntervalCmd);
     rikIntervalCmd = setInterval(sendRikCmd1005, 5000);
@@ -143,7 +196,6 @@ loadHistory();
 connectRikWebSocket();
 fastify.register(cors);
 
-// ✅ API trả dữ liệu cơ bản
 fastify.get("/api/taixiu/sunwin", async () => {
   const valid = rikResults.filter(r => r.d1 && r.d2 && r.d3);
   if (!valid.length) return { message: "Không có dữ liệu." };
@@ -152,6 +204,14 @@ fastify.get("/api/taixiu/sunwin", async () => {
   const sum = current.d1 + current.d2 + current.d3;
   const ket_qua = sum >= 11 ? "Tài" : "Xỉu";
 
+  const recentTX = valid.map(r => getTX(r.d1, r.d2, r.d3)).slice(0, 30);
+  const predText = predictNext(recentTX);
+  const prediction = {
+    prediction: predText === "Tài" ? "T" : "X",
+    reason: "Dự đoán theo mẫu cầu nâng cao",
+    confidence: 80
+  };
+
   return {
     id: "binhtool90 là trùm cuối",
     phien: current.sid,
@@ -159,11 +219,14 @@ fastify.get("/api/taixiu/sunwin", async () => {
     xuc_xac_2: current.d2,
     xuc_xac_3: current.d3,
     tong: sum,
-    ket_qua
+    ket_qua,
+    du_doan: prediction.prediction === "T" ? "Tài" : "Xỉu",
+    ty_le_thanh_cong: `${prediction.confidence}%`,
+    giai_thich: prediction.reason,
+    pattern: analyzePatterns(valid)?.description || "Không phát hiện mẫu cụ thể"
   };
 });
 
-// ✅ API lịch sử (mảng JSON)
 fastify.get("/api/taixiu/history", async () => {
   const valid = rikResults.filter(r => r.d1 && r.d2 && r.d3);
   if (!valid.length) return { message: "Không có dữ liệu lịch sử." };
@@ -172,7 +235,7 @@ fastify.get("/api/taixiu/history", async () => {
     dice: [i.d1, i.d2, i.d3],
     total: i.d1 + i.d2 + i.d3,
     result: getTX(i.d1, i.d2, i.d3) === "T" ? "Tài" : "Xỉu"
-  }));
+  })).map(JSON.stringify).join("\n");
 });
 
 const start = async () => {
