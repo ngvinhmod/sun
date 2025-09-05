@@ -72,7 +72,7 @@ function pollApi() {
                 Xuc_xac_3: d3,
                 Tong: d1 + d2 + d3,
                 Ket_qua: getTaiXiu(d1, d2, d3),
-                id: "anhbaocx",
+                id: "Vinh Cu To ( @axobantool )",
                 updatedAt: new Date().toISOString(),
               };
 
