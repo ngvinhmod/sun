@@ -19,6 +19,7 @@ let cachedParsed = null;
 let lastPhien = null;
 let historyParsed = [];
 
+// === Lấy IP thật của server ===
 const realIp = Object.values(os.networkInterfaces())
   .flat()
   .find((iface) => iface && iface.family === "IPv4" && !iface.internal)?.address;
@@ -30,60 +31,61 @@ function getTaiXiu(d1, d2, d3) {
 }
 
 // === Poll API ===
-async function pollApi() {
-  try {
-    https
-      .get(API_URL, { headers: { "User-Agent": "Node-Proxy/1.0" } }, (res) => {
-        let body = "";
-        res.on("data", (chunk) => (body += chunk));
-        res.on("end", () => {
-          try {
-            const data = JSON.parse(body);
-            cachedRaw = data;
+function pollApi() {
+  https
+    .get(API_URL, { headers: { "User-Agent": "Node-Proxy/1.0" } }, (res) => {
+      let body = "";
+      res.on("data", (chunk) => (body += chunk));
+      res.on("end", () => {
+        try {
+          const data = JSON.parse(body);
+          cachedRaw = data;
 
-            if (
-              data.status === "OK" &&
-              Array.isArray(data.data) &&
-              data.data.length > 0
-            ) {
-              const game = data.data[0];
-              const { sid, d1, d2, d3 } = game;
+          if (
+            data.status === "OK" &&
+            Array.isArray(data.data) &&
+            data.data.length > 0
+          ) {
+            const game = data.data[0];
+            const { sid, d1, d2, d3 } = game;
 
-              if (sid !== lastPhien && d1 != null && d2 != null && d3 != null) {
-                lastPhien = sid;
-                const parsed = {
-                  Phien: sid, // ✅ Đổi từ sid → Phien
-                  Xuc_xac_1: d1,
-                  Xuc_xac_2: d2,
-                  Xuc_xac_3: d3,
-                  Tong: d1 + d2 + d3,
-                  Ket_qua: getTaiXiu(d1, d2, d3),
-                  id: "anhbaocx",
-                  updatedAt: new Date().toISOString(),
-                };
+            if (sid !== lastPhien && d1 != null && d2 != null && d3 != null) {
+              lastPhien = sid;
+              const parsed = {
+                Phien: sid, // ✅ Đổi từ sid → Phien
+                Xuc_xac_1: d1,
+                Xuc_xac_2: d2,
+                Xuc_xac_3: d3,
+                Tong: d1 + d2 + d3,
+                Ket_qua: getTaiXiu(d1, d2, d3),
+                id: "anhbaocx",
+                updatedAt: new Date().toISOString(),
+              };
 
-                cachedParsed = parsed;
-                historyParsed.push(parsed);
-                if (historyParsed.length > MAX_HISTORY) historyParsed.shift();
+              cachedParsed = parsed;
+              historyParsed.push(parsed);
+              if (historyParsed.length > MAX_HISTORY) historyParsed.shift();
 
-                console.log(`[${new Date().toISOString()}] ✅ New HIT session:`, parsed);
-              }
+              console.log(`[${new Date().toISOString()}] ✅ New HIT session:`, parsed);
             }
-          } catch (e) {
-            console.error("❌ Parse error:", e);
           }
-        });
-      })
-      .on("error", (err) => {
-        console.error(`[${new Date().toISOString()}] ❌ Poll error:`, err);
-        setTimeout(pollApi, RETRY_DELAY);
+        } catch (e) {
+          console.error("❌ Parse error:", e.message);
+        }
       });
-  } catch (e) {
-    console.error("❌ Unexpected poll error:", e);
-  } finally {
-    setTimeout(pollApi, POLL_INTERVAL);
-  }
+    })
+    .on("error", (err) => {
+      console.error(`[${new Date().toISOString()}] ❌ Poll error:`, err.message);
+      setTimeout(pollApi, RETRY_DELAY);
+    })
+    .on("timeout", () => {
+      console.error("⏳ Poll request timeout");
+    });
+
+  setTimeout(pollApi, POLL_INTERVAL);
 }
+
+// Start polling
 pollApi();
 
 // === HTTP SERVER ===
