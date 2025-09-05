@@ -1,13 +1,23 @@
 {
-  "name": "hitclub-taixiu-api",
+  "name": "hitclub-api",
   "version": "1.0.0",
-  "description": "HitClub Tài Xỉu API Proxy (Node.js version)",
+  "description": "API proxy cho HitClub Tài Xỉu",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "pm2": "pm2 start server.js --name hitclub-api --watch"
+    "dev": "nodemon server.js",
+    "pm2": "pm2 start server.js --name hitclub-api"
   },
-  "author": "anhbaocx",
+  "keywords": [
+    "hitclub",
+    "tai-xiu",
+    "api",
+    "nodejs"
+  ],
+  "author": "VinhMod",
   "license": "MIT",
-  "dependencies": {}
+  "dependencies": {},
+  "devDependencies": {
+    "nodemon": "^2.0.22"
+  }
 }
